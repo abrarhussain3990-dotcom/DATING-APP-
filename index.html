@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -27,4 +28,97 @@
         <h2>Login</h2>
         <input id="loginEmail" type="email" placeholder="Email" required />
         <input id="loginPassword" type="password" placeholder="Password" required />
-        <button type="submit">Login
+        <button type="submit">Login</button>
+      </form>
+
+      <form id="registerForm" class="form hidden">
+        <h2>Create Account</h2>
+        <input id="registerEmail" type="email" placeholder="Email" required />
+        <input id="registerPassword" type="password" placeholder="Password" required />
+        <button type="submit">Register</button>
+      </form>
+    </section>
+
+    <section id="mainPage" class="page">
+      <nav class="nav">
+        <button class="navBtn active" data-tab="discoverTab">Discover</button>
+        <button class="navBtn" data-tab="matchesTab">Matches</button>
+        <button class="navBtn" data-tab="chatTab">Chat</button>
+        <button class="navBtn" data-tab="profileTab">Profile</button>
+      </nav>
+
+      <div id="discoverTab" class="tab active">
+        <h2>Discover</h2>
+        <div id="profileCard" class="profile-card"></div>
+
+        <div class="actions">
+          <button id="skipBtn" class="skip">Skip</button>
+          <button id="likeBtn" class="like">Like</button>
+        </div>
+      </div>
+
+      <div id="matchesTab" class="tab">
+        <h2>Your Matches</h2>
+        <div id="matchesList" class="list"></div>
+      </div>
+
+      <div id="chatTab" class="tab">
+        <h2>Chat</h2>
+
+        <select id="chatSelect"></select>
+
+        <div class="call-box">
+          <button id="callBtn">Start Voice Call</button>
+          <button id="hangupBtn" class="danger">Hang Up</button>
+        </div>
+
+        <audio id="remoteAudio" autoplay></audio>
+
+        <div id="messagesBox" class="messages"></div>
+
+        <div class="chat-input">
+          <input id="messageInput" type="text" placeholder="Type message..." />
+          <button id="sendBtn">Send</button>
+        </div>
+
+        <div class="voice-box">
+          <button id="recordBtn">Record Voice</button>
+          <button id="stopRecordBtn" class="danger" disabled>Stop</button>
+        </div>
+      </div>
+
+      <div id="profileTab" class="tab">
+        <h2>My Profile</h2>
+
+        <form id="profileForm" class="form">
+          <input id="profileName" type="text" placeholder="Name" required />
+          <input id="profileAge" type="number" placeholder="Age" min="18" required />
+
+          <select id="profileGender">
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Other">Other</option>
+          </select>
+
+          <input id="profileCity" type="text" placeholder="City" />
+          <textarea id="profileBio" placeholder="Bio"></textarea>
+          <input id="profilePhoto" type="url" placeholder="Photo URL" />
+
+          <button type="submit">Save Profile</button>
+        </form>
+      </div>
+    </section>
+
+    <div id="incomingCall" class="incoming hidden">
+      <div class="incoming-card">
+        <h3>Incoming voice call</h3>
+        <p id="incomingText">Someone is calling...</p>
+        <button id="answerBtn">Answer</button>
+        <button id="rejectBtn" class="danger">Reject</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="script.js"></script>
+</body>
+</html>
