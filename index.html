@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Firebase Dating App</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div class="app">
+    <header class="header">
+      <div>
+        <h1>HeartLink</h1>
+        <p>Simple Firebase dating app</p>
+      </div>
+      <button id="logoutBtn" class="logout hidden">Logout</button>
+    </header>
+
+    <section id="authPage" class="page active">
+      <div class="auth-switch">
+        <button id="loginTab" class="active">Login</button>
+        <button id="registerTab">Register</button>
+      </div>
+
+      <form id="loginForm" class="form">
+        <h2>Login</h2>
+        <input id="loginEmail" type="email" placeholder="Email" required />
+        <input id="loginPassword" type="password" placeholder="Password" required />
+        <button type="submit">Login
