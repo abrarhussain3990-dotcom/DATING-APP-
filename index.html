@@ -2,62 +2,30 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Dating App</title>
+  <title>Simple Dating App</title>
+  <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
 
-  <h1>💖 Simple Dating App</h1>
+<h1>💖 Simple Dating App</h1>
 
-  <input id="name" placeholder="Enter Name">
-  <input id="age" placeholder="Enter Age">
+<div class="box">
+  <input id="name" placeholder="Enter your name">
+  <button onclick="addUser()">Add User</button>
+</div>
 
-  <button onclick="saveUser()">Save Profile</button>
+<h2>👥 Users</h2>
+<div id="users"></div>
 
-  <h3>Users:</h3>
-  <div id="users"></div>
+<h2>💬 Chat</h2>
+<div id="chatBox"></div>
 
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js"></script>
+<input id="msg" placeholder="Type message">
+<button onclick="sendMsg()">Send</button>
 
-  <script>
-    // 🔥 Firebase Config
-    const firebaseConfig = {
-      databaseURL: "https://love-dating-b4b20-default-rtdb.firebaseio.com/"
-    };
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"></script>
 
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-
-    // 💾 Save user
-    function saveUser() {
-      let name = document.getElementById("name").value;
-      let age = document.getElementById("age").value;
-
-      let id = Date.now();
-
-      db.ref("users/" + id).set({
-        name: name,
-        age: age
-      });
-
-      alert("Profile Saved 💖");
-    }
-
-    // 📥 Load users
-    db.ref("users").on("value", (snapshot) => {
-      let data = snapshot.val();
-      let html = "";
-
-      for (let id in data) {
-        html += `<p>👤 ${data[id].name} - ${data[id].age}</p>`;
-      }
-
-      document.getElementById("users").innerHTML = html;
-    });
-
-  </script>
-
+<script src="script.js"></script>
 </body>
 </html>
