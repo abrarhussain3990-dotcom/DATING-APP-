@@ -2,6 +2,44 @@
 <html>
 <head>
   <title>💖 Dating App</title>
+
+  <style>
+    body {
+      font-family: Arial;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+
+    h1 {
+      color: #ff4d6d;
+    }
+
+    input, button {
+      padding: 8px;
+      margin: 5px;
+    }
+
+    #users p {
+      cursor: pointer;
+      background: white;
+      padding: 8px;
+      border-radius: 5px;
+      margin: 5px 0;
+    }
+
+    #users p:hover {
+      background: #ffe0e6;
+    }
+
+    #chat {
+      background: white;
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 5px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+  </style>
 </head>
 
 <body>
@@ -24,7 +62,7 @@
 
 <div id="chat"></div>
 
-<!-- Firebase v8 (WORKING) -->
+<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 
@@ -40,19 +78,31 @@ const db = firebase.firestore();
 
 let currentUser = "";
 let selectedUser = "";
+let unsubscribeChat = null;
 
-// ADD USER
+// ADD USER (NO DUPLICATE)
 function addUser() {
-  currentUser = document.getElementById("name").value;
+  let name = document.getElementById("name").value.trim();
 
-  db.collection("users").add({
-    name: currentUser
-  });
+  if (name === "") {
+    alert("Enter name!");
+    return;
+  }
 
-  alert("Entered as " + currentUser);
+  currentUser = name;
+
+  db.collection("users")
+    .where("name", "==", name)
+    .get()
+    .then(snapshot => {
+      if (snapshot.empty) {
+        db.collection("users").add({ name: name });
+      }
+      alert("Entered as " + name);
+    });
 }
 
-// SHOW USERS
+// REALTIME USERS
 db.collection("users").onSnapshot(snapshot => {
   let usersDiv = document.getElementById("users");
   usersDiv.innerHTML = "";
@@ -76,41 +126,55 @@ function selectUser(user) {
   loadChat();
 }
 
-// SEND MESSAGE
+// SEND MESSAGE (WITH TIME + VALIDATION)
 function sendMsg() {
-  let msg = document.getElementById("msg").value;
+  let msgInput = document.getElementById("msg");
+  let msg = msgInput.value.trim();
 
   if (!selectedUser) {
     alert("Select user first!");
     return;
   }
 
+  if (msg === "") return;
+
   db.collection("messages").add({
     from: currentUser,
     to: selectedUser,
-    text: msg
+    text: msg,
+    time: Date.now()
   });
 
-  document.getElementById("msg").value = "";
+  msgInput.value = "";
 }
 
-// LOAD CHAT
+// LOAD CHAT (ORDERED + FIX MULTIPLE LISTENERS)
 function loadChat() {
-  db.collection("messages").onSnapshot(snapshot => {
-    let chatDiv = document.getElementById("chat");
-    chatDiv.innerHTML = "";
 
-    snapshot.forEach(doc => {
-      let m = doc.data();
+  // previous listener stop karo
+  if (unsubscribeChat) unsubscribeChat();
 
-      if (
-        (m.from === currentUser && m.to === selectedUser) ||
-        (m.from === selectedUser && m.to === currentUser)
-      ) {
-        chatDiv.innerHTML += `<p><b>${m.from}:</b> ${m.text}</p>`;
-      }
+  unsubscribeChat = db.collection("messages")
+    .orderBy("time")
+    .onSnapshot(snapshot => {
+
+      let chatDiv = document.getElementById("chat");
+      chatDiv.innerHTML = "";
+
+      snapshot.forEach(doc => {
+        let m = doc.data();
+
+        if (
+          (m.from === currentUser && m.to === selectedUser) ||
+          (m.from === selectedUser && m.to === currentUser)
+        ) {
+          chatDiv.innerHTML += `<p><b>${m.from}:</b> ${m.text}</p>`;
+        }
+      });
+
+      // auto scroll down
+      chatDiv.scrollTop = chatDiv.scrollHeight;
     });
-  });
 }
 </script>
 
