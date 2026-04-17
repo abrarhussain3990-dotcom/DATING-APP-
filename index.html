@@ -1,18 +1,12 @@
+
 <!DOCTYPE html>
 <html>
 <head>
   <title>💖 Dating App</title>
 
   <style>
-    body {
-      font-family: Arial;
-      padding: 20px;
-      background: #f5f5f5;
-    }
-
-    h1 {
-      color: #ff4d6d;
-    }
+    body { font-family: Arial; padding: 20px; background: #f5f5f5; }
+    h1 { color: #ff4d6d; }
 
     input, button {
       padding: 10px;
@@ -57,23 +51,12 @@
       max-width: 65%;
     }
 
-    .me {
-      background: #ff4d6d;
-      color: white;
-      align-self: flex-end;
-    }
+    .me { background: #ff4d6d; color: white; align-self: flex-end; }
+    .other { background: #e4e6eb; align-self: flex-start; }
 
-    .other {
-      background: #e4e6eb;
-      align-self: flex-start;
-    }
+    .time { font-size: 10px; opacity: 0.7; }
 
-    .time {
-      font-size: 10px;
-      opacity: 0.7;
-      display: block;
-      margin-top: 3px;
-    }
+    .typing { font-size: 12px; color: gray; }
   </style>
 </head>
 
@@ -90,6 +73,7 @@
 <hr>
 
 <h2 id="chatWith">Select a user</h2>
+<div id="typing"></div>
 
 <input id="msg" placeholder="Type message">
 <button onclick="sendMsg()">Send</button>
@@ -113,7 +97,7 @@ let currentUser = "";
 let selectedUser = "";
 let unsubscribeChat = null;
 
-// TIME FORMAT
+// TIME
 function formatTime(ts) {
   let d = new Date(ts);
   return d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0");
@@ -133,6 +117,14 @@ function addUser() {
   currentUser = name;
   document.getElementById("name").disabled = true;
 
+  // keep online active
+  setInterval(() => {
+    db.collection("users").doc(currentUser).update({
+      online: true,
+      lastSeen: Date.now()
+    });
+  }, 5000);
+
   alert("Welcome " + name);
 }
 
@@ -146,44 +138,48 @@ window.addEventListener("beforeunload", () => {
   }
 });
 
-// USERS LIST (FIXED LAST MESSAGE)
+// USERS (FIXED)
 db.collection("users").onSnapshot(snapshot => {
   let usersDiv = document.getElementById("users");
   usersDiv.innerHTML = "";
 
   snapshot.forEach(doc => {
     let u = doc.data();
+
     if (u.name !== currentUser) {
 
-      db.collection("messages")
-        .where("from", "in", [currentUser, u.name])
-        .orderBy("time", "desc")
-        .limit(1)
-        .get()
-        .then(msgSnap => {
+      let status = u.online
+        ? `<span class="online">Online</span>`
+        : `<span class="offline">Last seen: ${formatTime(u.lastSeen)}</span>`;
 
+      usersDiv.innerHTML += `
+        <div onclick="selectUser('${u.name}')">
+          <b>${u.name}</b><br>
+          ${status}<br>
+          <small id="last-${u.name}"></small>
+        </div>
+      `;
+
+      // SAFE last message
+      db.collection("messages")
+        .orderBy("time", "desc")
+        .limit(20)
+        .get()
+        .then(snap => {
           let lastMsg = "";
-          msgSnap.forEach(m => {
-            let data = m.data();
+
+          snap.forEach(m => {
+            let d = m.data();
             if (
-              (data.from === currentUser && data.to === u.name) ||
-              (data.from === u.name && data.to === currentUser)
+              (d.from === currentUser && d.to === u.name) ||
+              (d.from === u.name && d.to === currentUser)
             ) {
-              lastMsg = data.text;
+              if (!lastMsg) lastMsg = d.text;
             }
           });
 
-          let status = u.online
-            ? `<span class="online">Online</span>`
-            : `<span class="offline">Last seen: ${formatTime(u.lastSeen)}</span>`;
-
-          usersDiv.innerHTML += `
-            <div onclick="selectUser('${u.name}')">
-              <b>${u.name}</b><br>
-              ${status}<br>
-              <small>${lastMsg}</small>
-            </div>
-          `;
+          let el = document.getElementById(`last-${u.name}`);
+          if (el) el.innerText = lastMsg;
         });
     }
   });
@@ -196,61 +192,24 @@ function selectUser(user) {
   loadChat();
 }
 
-// SEND MESSAGE
-function sendMsg() {
-  let msg = document.getElementById("msg").value.trim();
+// TYPING
+document.getElementById("msg").addEventListener("input", () => {
+  if (!selectedUser) return;
 
-  if (!selectedUser) return alert("Select user first!");
-  if (!msg) return;
-
-  db.collection("messages").add({
+  db.collection("typing").doc(currentUser + "_" + selectedUser).set({
     from: currentUser,
     to: selectedUser,
-    text: msg,
-    time: Date.now()
+    typing: true
   });
 
-  document.getElementById("msg").value = "";
-}
-
-// ENTER KEY
-document.getElementById("msg").addEventListener("keypress", e => {
-  if (e.key === "Enter") sendMsg();
+  setTimeout(() => {
+    db.collection("typing").doc(currentUser + "_" + selectedUser).update({
+      typing: false
+    });
+  }, 1000);
 });
 
-// CHAT
-function loadChat() {
-  if (unsubscribeChat) unsubscribeChat();
-
-  unsubscribeChat = db.collection("messages")
-    .orderBy("time")
-    .onSnapshot(snapshot => {
-
-      let chatDiv = document.getElementById("chat");
-      chatDiv.innerHTML = "";
-
-      snapshot.forEach(doc => {
-        let m = doc.data();
-
-        if (
-          (m.from === currentUser && m.to === selectedUser) ||
-          (m.from === selectedUser && m.to === currentUser)
-        ) {
-          let cls = m.from === currentUser ? "me" : "other";
-
-          chatDiv.innerHTML += `
-            <div class="msg ${cls}">
-              ${m.text}
-              <span class="time">${formatTime(m.time)}</span>
-            </div>
-          `;
-        }
-      });
-
-      chatDiv.scrollTop = chatDiv.scrollHeight;
-    });
-}
-</script>
-
-</body>
-</html>
+// SHOW TYPING
+function watchTyping() {
+  db.collection("typing")
+    .on
