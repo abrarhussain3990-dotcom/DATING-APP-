@@ -12,13 +12,16 @@
       margin: 5px;
     }
 
-    #users p {
+    #users div {
       background: white;
-      padding: 8px;
-      cursor: pointer;
+      padding: 10px;
       margin: 5px 0;
       border-radius: 5px;
+      cursor: pointer;
     }
+
+    .online { color: green; font-size: 12px; }
+    .offline { color: gray; font-size: 12px; }
 
     #chat {
       background: white;
@@ -99,44 +102,55 @@ function formatTime(ts) {
   return d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0");
 }
 
-// ADD USER (NO DUPLICATE + LOCK)
+// ADD USER (WITH ONLINE STATUS)
 function addUser() {
   let nameInput = document.getElementById("name");
   let name = nameInput.value.trim();
 
   if (!name) return alert("Enter name!");
-
-  if (currentUser) {
-    alert("Already entered!");
-    return;
-  }
+  if (currentUser) return alert("Already entered!");
 
   currentUser = name;
 
-  db.collection("users")
-    .where("name", "==", name)
-    .get()
-    .then(snapshot => {
-      if (snapshot.empty) {
-        db.collection("users").add({ name: name });
-      }
-      alert("Welcome " + name);
-    });
+  db.collection("users").doc(name).set({
+    name: name,
+    online: true,
+    lastSeen: Date.now()
+  });
 
   nameInput.disabled = true;
+  alert("Welcome " + name);
 }
 
-// SHOW USERS (REALTIME)
+// OFFLINE DETECT
+window.addEventListener("beforeunload", () => {
+  if (currentUser) {
+    db.collection("users").doc(currentUser).update({
+      online: false,
+      lastSeen: Date.now()
+    });
+  }
+});
+
+// USERS LIST (SAFE VERSION)
 db.collection("users").onSnapshot(snapshot => {
   let usersDiv = document.getElementById("users");
   usersDiv.innerHTML = "";
 
   snapshot.forEach(doc => {
-    let user = doc.data().name;
+    let u = doc.data();
 
-    if (user !== currentUser) {
+    if (u.name !== currentUser) {
+
+      let status = u.online
+        ? `<span class="online">🟢 Online</span>`
+        : `<span class="offline">Last seen: ${formatTime(u.lastSeen)}</span>`;
+
       usersDiv.innerHTML += `
-        <p onclick="selectUser('${user}')">${user}</p>
+        <div onclick="selectUser('${u.name}')">
+          <b>${u.name}</b><br>
+          ${status}
+        </div>
       `;
     }
   });
@@ -167,17 +181,14 @@ function sendMsg() {
   msgInput.value = "";
 }
 
-// ENTER KEY SEND
-document.getElementById("msg").addEventListener("keypress", function(e) {
-  if (e.key === "Enter") {
-    sendMsg();
-  }
+// ENTER KEY
+document.getElementById("msg").addEventListener("keypress", e => {
+  if (e.key === "Enter") sendMsg();
 });
 
-// CHAT (FIXED LISTENER BUG)
+// CHAT
 function loadChat() {
 
-  // ❗ old listener stop
   if (unsubscribeChat) unsubscribeChat();
 
   unsubscribeChat = db.collection("messages")
@@ -205,7 +216,6 @@ function loadChat() {
         }
       });
 
-      // auto scroll
       chatDiv.scrollTop = chatDiv.scrollHeight;
     });
 }
