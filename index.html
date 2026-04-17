@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -15,15 +16,24 @@
     }
 
     input, button {
-      padding: 8px;
+      padding: 10px;
       margin: 5px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      background: #ff4d6d;
+      color: white;
+      border: none;
+      cursor: pointer;
     }
 
     #users p {
       cursor: pointer;
       background: white;
-      padding: 8px;
-      border-radius: 5px;
+      padding: 10px;
+      border-radius: 8px;
       margin: 5px 0;
     }
 
@@ -35,9 +45,29 @@
       background: white;
       padding: 10px;
       margin-top: 10px;
-      border-radius: 5px;
+      border-radius: 8px;
       max-height: 300px;
       overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .msg {
+      padding: 8px 12px;
+      margin: 5px;
+      border-radius: 10px;
+      max-width: 60%;
+    }
+
+    .me {
+      background: #ff4d6d;
+      color: white;
+      align-self: flex-end;
+    }
+
+    .other {
+      background: #e4e6eb;
+      align-self: flex-start;
     }
   </style>
 </head>
@@ -54,8 +84,7 @@
 
 <hr>
 
-<h2>Chat</h2>
-<div id="chatWith"></div>
+<h2 id="chatWith">Select a user</h2>
 
 <input id="msg" placeholder="Type message">
 <button onclick="sendMsg()">Send</button>
@@ -80,16 +109,20 @@ let currentUser = "";
 let selectedUser = "";
 let unsubscribeChat = null;
 
-// ADD USER (NO DUPLICATE)
+// ADD USER (LOCK NAME + NO DUPLICATE)
 function addUser() {
-  let name = document.getElementById("name").value.trim();
+  let nameInput = document.getElementById("name");
+  let name = nameInput.value.trim();
 
   if (name === "") {
     alert("Enter name!");
     return;
   }
 
-  currentUser = name;
+  if (currentUser) {
+    alert("Already logged in!");
+    return;
+  }
 
   db.collection("users")
     .where("name", "==", name)
@@ -98,7 +131,9 @@ function addUser() {
       if (snapshot.empty) {
         db.collection("users").add({ name: name });
       }
-      alert("Entered as " + name);
+      currentUser = name;
+      nameInput.disabled = true;
+      alert("Welcome " + name);
     });
 }
 
@@ -122,14 +157,18 @@ db.collection("users").onSnapshot(snapshot => {
 function selectUser(user) {
   selectedUser = user;
   document.getElementById("chatWith").innerText = "Chat with: " + user;
-
   loadChat();
 }
 
-// SEND MESSAGE (WITH TIME + VALIDATION)
+// SEND MESSAGE
 function sendMsg() {
   let msgInput = document.getElementById("msg");
   let msg = msgInput.value.trim();
+
+  if (!currentUser) {
+    alert("Enter your name first!");
+    return;
+  }
 
   if (!selectedUser) {
     alert("Select user first!");
@@ -148,10 +187,16 @@ function sendMsg() {
   msgInput.value = "";
 }
 
-// LOAD CHAT (ORDERED + FIX MULTIPLE LISTENERS)
+// ENTER KEY SEND
+document.getElementById("msg").addEventListener("keypress", function(e) {
+  if (e.key === "Enter") {
+    sendMsg();
+  }
+});
+
+// LOAD CHAT
 function loadChat() {
 
-  // previous listener stop karo
   if (unsubscribeChat) unsubscribeChat();
 
   unsubscribeChat = db.collection("messages")
@@ -168,11 +213,16 @@ function loadChat() {
           (m.from === currentUser && m.to === selectedUser) ||
           (m.from === selectedUser && m.to === currentUser)
         ) {
-          chatDiv.innerHTML += `<p><b>${m.from}:</b> ${m.text}</p>`;
+          let className = m.from === currentUser ? "me" : "other";
+
+          chatDiv.innerHTML += `
+            <div class="msg ${className}">
+              ${m.text}
+            </div>
+          `;
         }
       });
 
-      // auto scroll down
       chatDiv.scrollTop = chatDiv.scrollHeight;
     });
 }
