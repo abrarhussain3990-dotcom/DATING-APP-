@@ -29,16 +29,22 @@
       cursor: pointer;
     }
 
-    #users p {
-      cursor: pointer;
+    #users div {
       background: white;
       padding: 10px;
       border-radius: 8px;
       margin: 5px 0;
+      cursor: pointer;
     }
 
-    #users p:hover {
-      background: #ffe0e6;
+    .online {
+      color: green;
+      font-size: 12px;
+    }
+
+    .offline {
+      color: gray;
+      font-size: 12px;
     }
 
     #chat {
@@ -109,46 +115,74 @@ let currentUser = "";
 let selectedUser = "";
 let unsubscribeChat = null;
 
-// ADD USER (LOCK NAME + NO DUPLICATE)
+// ADD USER + ONLINE STATUS
 function addUser() {
   let nameInput = document.getElementById("name");
   let name = nameInput.value.trim();
 
-  if (name === "") {
-    alert("Enter name!");
-    return;
-  }
+  if (!name) return alert("Enter name!");
 
-  if (currentUser) {
-    alert("Already logged in!");
-    return;
-  }
+  db.collection("users").doc(name).set({
+    name: name,
+    online: true,
+    lastSeen: Date.now()
+  });
 
-  db.collection("users")
-    .where("name", "==", name)
-    .get()
-    .then(snapshot => {
-      if (snapshot.empty) {
-        db.collection("users").add({ name: name });
-      }
-      currentUser = name;
-      nameInput.disabled = true;
-      alert("Welcome " + name);
-    });
+  currentUser = name;
+  nameInput.disabled = true;
+
+  alert("Welcome " + name);
 }
 
-// REALTIME USERS
+// UPDATE OFFLINE WHEN TAB CLOSE
+window.addEventListener("beforeunload", () => {
+  if (currentUser) {
+    db.collection("users").doc(currentUser).update({
+      online: false,
+      lastSeen: Date.now()
+    });
+  }
+});
+
+// REALTIME USERS + LAST MSG
 db.collection("users").onSnapshot(snapshot => {
   let usersDiv = document.getElementById("users");
   usersDiv.innerHTML = "";
 
   snapshot.forEach(doc => {
-    let user = doc.data().name;
+    let u = doc.data();
 
-    if (user !== currentUser) {
-      usersDiv.innerHTML += `
-        <p onclick="selectUser('${user}')">${user}</p>
-      `;
+    if (u.name !== currentUser) {
+
+      db.collection("messages")
+        .orderBy("time", "desc")
+        .limit(1)
+        .get()
+        .then(msgSnap => {
+
+          let lastMsg = "";
+          msgSnap.forEach(m => {
+            let data = m.data();
+            if (
+              (data.from === currentUser && data.to === u.name) ||
+              (data.from === u.name && data.to === currentUser)
+            ) {
+              lastMsg = data.text;
+            }
+          });
+
+          let status = u.online
+            ? "<span class='online'>Online</span>"
+            : "<span class='offline'>Last seen</span>";
+
+          usersDiv.innerHTML += `
+            <div onclick="selectUser('${u.name}')">
+              <b>${u.name}</b><br>
+              ${status}<br>
+              <small>${lastMsg}</small>
+            </div>
+          `;
+        });
     }
   });
 });
@@ -165,17 +199,8 @@ function sendMsg() {
   let msgInput = document.getElementById("msg");
   let msg = msgInput.value.trim();
 
-  if (!currentUser) {
-    alert("Enter your name first!");
-    return;
-  }
-
-  if (!selectedUser) {
-    alert("Select user first!");
-    return;
-  }
-
-  if (msg === "") return;
+  if (!selectedUser) return alert("Select user first!");
+  if (!msg) return;
 
   db.collection("messages").add({
     from: currentUser,
@@ -187,11 +212,9 @@ function sendMsg() {
   msgInput.value = "";
 }
 
-// ENTER KEY SEND
-document.getElementById("msg").addEventListener("keypress", function(e) {
-  if (e.key === "Enter") {
-    sendMsg();
-  }
+// ENTER KEY
+document.getElementById("msg").addEventListener("keypress", e => {
+  if (e.key === "Enter") sendMsg();
 });
 
 // LOAD CHAT
@@ -213,10 +236,10 @@ function loadChat() {
           (m.from === currentUser && m.to === selectedUser) ||
           (m.from === selectedUser && m.to === currentUser)
         ) {
-          let className = m.from === currentUser ? "me" : "other";
+          let cls = m.from === currentUser ? "me" : "other";
 
           chatDiv.innerHTML += `
-            <div class="msg ${className}">
+            <div class="msg ${cls}">
               ${m.text}
             </div>
           `;
