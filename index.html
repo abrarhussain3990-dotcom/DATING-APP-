@@ -17,6 +17,7 @@
       padding: 8px;
       cursor: pointer;
       margin: 5px 0;
+      border-radius: 5px;
     }
 
     #chat {
@@ -26,6 +27,7 @@
       overflow-y: auto;
       display: flex;
       flex-direction: column;
+      border-radius: 5px;
     }
 
     .msg {
@@ -67,7 +69,7 @@
 
 <hr>
 
-<h2 id="chatWith"></h2>
+<h2 id="chatWith">Select user</h2>
 
 <input id="msg" placeholder="Type message">
 <button onclick="sendMsg()">Send</button>
@@ -89,6 +91,7 @@ const db = firebase.firestore();
 
 let currentUser = "";
 let selectedUser = "";
+let unsubscribeChat = null;
 
 // TIME FORMAT
 function formatTime(ts) {
@@ -96,7 +99,7 @@ function formatTime(ts) {
   return d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0");
 }
 
-// ADD USER (UPGRADED - NO DUPLICATE)
+// ADD USER (NO DUPLICATE + LOCK)
 function addUser() {
   let nameInput = document.getElementById("name");
   let name = nameInput.value.trim();
@@ -123,7 +126,7 @@ function addUser() {
   nameInput.disabled = true;
 }
 
-// SHOW USERS
+// SHOW USERS (REALTIME)
 db.collection("users").onSnapshot(snapshot => {
   let usersDiv = document.getElementById("users");
   usersDiv.innerHTML = "";
@@ -148,7 +151,8 @@ function selectUser(user) {
 
 // SEND MESSAGE
 function sendMsg() {
-  let msg = document.getElementById("msg").value.trim();
+  let msgInput = document.getElementById("msg");
+  let msg = msgInput.value.trim();
 
   if (!selectedUser) return alert("Select user first!");
   if (!msg) return;
@@ -160,7 +164,7 @@ function sendMsg() {
     time: Date.now()
   });
 
-  document.getElementById("msg").value = "";
+  msgInput.value = "";
 }
 
 // ENTER KEY SEND
@@ -170,9 +174,13 @@ document.getElementById("msg").addEventListener("keypress", function(e) {
   }
 });
 
-// CHAT (UPGRADED UI)
+// CHAT (FIXED LISTENER BUG)
 function loadChat() {
-  db.collection("messages")
+
+  // ❗ old listener stop
+  if (unsubscribeChat) unsubscribeChat();
+
+  unsubscribeChat = db.collection("messages")
     .orderBy("time")
     .onSnapshot(snapshot => {
 
@@ -197,6 +205,7 @@ function loadChat() {
         }
       });
 
+      // auto scroll
       chatDiv.scrollTop = chatDiv.scrollHeight;
     });
 }
