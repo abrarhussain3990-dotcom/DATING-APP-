@@ -96,11 +96,6 @@ let currentUser = "";
 let selectedUser = "";
 let unsubscribeChat = null;
 
-// 🔥 CHAT ID (IMPORTANT)
-function getChatId(a, b) {
-  return [a, b].sort().join("_");
-}
-
 // TIME
 function formatTime(ts) {
   let d = new Date(ts);
@@ -118,7 +113,7 @@ function addUser() {
   currentUser = name;
 
   db.collection("users").doc(name).set({
-    name: name,
+    name,
     online: true,
     lastSeen: Date.now()
   });
@@ -137,29 +132,15 @@ window.addEventListener("beforeunload", () => {
   }
 });
 
-// USERS LIST + LAST MESSAGE 🔥
-db.collection("users").onSnapshot(async snapshot => {
+// USERS LIST (SUPER SAFE ✅)
+db.collection("users").onSnapshot(snapshot => {
   let usersDiv = document.getElementById("users");
   usersDiv.innerHTML = "";
 
-  for (let doc of snapshot.docs) {
+  snapshot.forEach(doc => {
     let u = doc.data();
 
     if (u.name !== currentUser) {
-
-      let chatId = getChatId(currentUser, u.name);
-
-      let msgSnap = await db.collection("messages")
-        .where("chatId", "==", chatId)
-        .orderBy("time", "desc")
-        .limit(1)
-        .get();
-
-      let lastMsg = "No messages";
-
-      msgSnap.forEach(m => {
-        lastMsg = m.data().text;
-      });
 
       let status = u.online
         ? `<span class="online">🟢 Online</span>`
@@ -168,12 +149,11 @@ db.collection("users").onSnapshot(async snapshot => {
       usersDiv.innerHTML += `
         <div onclick="selectUser('${u.name}')">
           <b>${u.name}</b><br>
-          ${status}<br>
-          <small>${lastMsg}</small>
+          ${status}
         </div>
       `;
     }
-  }
+  });
 });
 
 // SELECT USER
@@ -183,7 +163,7 @@ function selectUser(user) {
   loadChat();
 }
 
-// SEND MESSAGE (UPDATED)
+// SEND MESSAGE
 function sendMsg() {
   let msgInput = document.getElementById("msg");
   let msg = msgInput.value.trim();
@@ -191,10 +171,7 @@ function sendMsg() {
   if (!selectedUser) return alert("Select user first!");
   if (!msg) return;
 
-  let chatId = getChatId(currentUser, selectedUser);
-
   db.collection("messages").add({
-    chatId: chatId,
     from: currentUser,
     to: selectedUser,
     text: msg,
@@ -209,15 +186,12 @@ document.getElementById("msg").addEventListener("keypress", e => {
   if (e.key === "Enter") sendMsg();
 });
 
-// CHAT (FAST)
+// CHAT (SAFE + ORDERED)
 function loadChat() {
 
   if (unsubscribeChat) unsubscribeChat();
 
-  let chatId = getChatId(currentUser, selectedUser);
-
   unsubscribeChat = db.collection("messages")
-    .where("chatId", "==", chatId)
     .orderBy("time")
     .onSnapshot(snapshot => {
 
@@ -227,14 +201,19 @@ function loadChat() {
       snapshot.forEach(doc => {
         let m = doc.data();
 
-        let cls = m.from === currentUser ? "me" : "other";
+        if (
+          (m.from === currentUser && m.to === selectedUser) ||
+          (m.from === selectedUser && m.to === currentUser)
+        ) {
+          let cls = m.from === currentUser ? "me" : "other";
 
-        chatDiv.innerHTML += `
-          <div class="msg ${cls}">
-            ${m.text}
-            <span class="time">${formatTime(m.time)}</span>
-          </div>
-        `;
+          chatDiv.innerHTML += `
+            <div class="msg ${cls}">
+              ${m.text}
+              <span class="time">${formatTime(m.time)}</span>
+            </div>
+          `;
+        }
       });
 
       chatDiv.scrollTop = chatDiv.scrollHeight;
