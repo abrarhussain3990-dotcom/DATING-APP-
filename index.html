@@ -1,31 +1,118 @@
-
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Simple Dating App</title>
-  <link rel="stylesheet" href="style.css">
+  <title>💖 Dating App</title>
 </head>
+
 <body>
 
-<h1>💖 Simple Dating App</h1>
+<h1>💖 Dating App</h1>
 
-<div class="box">
-  <input id="name" placeholder="Enter your name">
-  <button onclick="addUser()">Add User</button>
-</div>
+<input id="name" placeholder="Enter your name">
+<button onclick="addUser()">Enter</button>
 
-<h2>👥 Users</h2>
+<h2>Users</h2>
 <div id="users"></div>
 
-<h2>💬 Chat</h2>
-<div id="chatBox"></div>
+<hr>
+
+<h2>Chat</h2>
+<div id="chatWith"></div>
 
 <input id="msg" placeholder="Type message">
 <button onclick="sendMsg()">Send</button>
 
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"></script>
+<div id="chat"></div>
 
-<script src="script.js"></script>
+<!-- Firebase v8 (WORKING) -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyBy5mWexTkc05_NNEBo6Kore8Ur1YtC6cU",
+  authDomain: "lovedatingapp-70584.firebaseapp.com",
+  projectId: "lovedatingapp-70584",
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+let currentUser = "";
+let selectedUser = "";
+
+// ADD USER
+function addUser() {
+  currentUser = document.getElementById("name").value;
+
+  db.collection("users").add({
+    name: currentUser
+  });
+
+  alert("Entered as " + currentUser);
+}
+
+// SHOW USERS
+db.collection("users").onSnapshot(snapshot => {
+  let usersDiv = document.getElementById("users");
+  usersDiv.innerHTML = "";
+
+  snapshot.forEach(doc => {
+    let user = doc.data().name;
+
+    if (user !== currentUser) {
+      usersDiv.innerHTML += `
+        <p onclick="selectUser('${user}')">${user}</p>
+      `;
+    }
+  });
+});
+
+// SELECT USER
+function selectUser(user) {
+  selectedUser = user;
+  document.getElementById("chatWith").innerText = "Chat with: " + user;
+
+  loadChat();
+}
+
+// SEND MESSAGE
+function sendMsg() {
+  let msg = document.getElementById("msg").value;
+
+  if (!selectedUser) {
+    alert("Select user first!");
+    return;
+  }
+
+  db.collection("messages").add({
+    from: currentUser,
+    to: selectedUser,
+    text: msg
+  });
+
+  document.getElementById("msg").value = "";
+}
+
+// LOAD CHAT
+function loadChat() {
+  db.collection("messages").onSnapshot(snapshot => {
+    let chatDiv = document.getElementById("chat");
+    chatDiv.innerHTML = "";
+
+    snapshot.forEach(doc => {
+      let m = doc.data();
+
+      if (
+        (m.from === currentUser && m.to === selectedUser) ||
+        (m.from === selectedUser && m.to === currentUser)
+      ) {
+        chatDiv.innerHTML += `<p><b>${m.from}:</b> ${m.text}</p>`;
+      }
+    });
+  });
+}
+</script>
+
 </body>
 </html>
