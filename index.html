@@ -96,13 +96,18 @@ let currentUser = "";
 let selectedUser = "";
 let unsubscribeChat = null;
 
-// TIME FORMAT
+// 🔥 CHAT ID (IMPORTANT)
+function getChatId(a, b) {
+  return [a, b].sort().join("_");
+}
+
+// TIME
 function formatTime(ts) {
   let d = new Date(ts);
   return d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0");
 }
 
-// ADD USER (WITH ONLINE STATUS)
+// ADD USER
 function addUser() {
   let nameInput = document.getElementById("name");
   let name = nameInput.value.trim();
@@ -122,7 +127,7 @@ function addUser() {
   alert("Welcome " + name);
 }
 
-// OFFLINE DETECT
+// OFFLINE
 window.addEventListener("beforeunload", () => {
   if (currentUser) {
     db.collection("users").doc(currentUser).update({
@@ -132,15 +137,29 @@ window.addEventListener("beforeunload", () => {
   }
 });
 
-// USERS LIST (SAFE VERSION)
-db.collection("users").onSnapshot(snapshot => {
+// USERS LIST + LAST MESSAGE 🔥
+db.collection("users").onSnapshot(async snapshot => {
   let usersDiv = document.getElementById("users");
   usersDiv.innerHTML = "";
 
-  snapshot.forEach(doc => {
+  for (let doc of snapshot.docs) {
     let u = doc.data();
 
     if (u.name !== currentUser) {
+
+      let chatId = getChatId(currentUser, u.name);
+
+      let msgSnap = await db.collection("messages")
+        .where("chatId", "==", chatId)
+        .orderBy("time", "desc")
+        .limit(1)
+        .get();
+
+      let lastMsg = "No messages";
+
+      msgSnap.forEach(m => {
+        lastMsg = m.data().text;
+      });
 
       let status = u.online
         ? `<span class="online">🟢 Online</span>`
@@ -149,11 +168,12 @@ db.collection("users").onSnapshot(snapshot => {
       usersDiv.innerHTML += `
         <div onclick="selectUser('${u.name}')">
           <b>${u.name}</b><br>
-          ${status}
+          ${status}<br>
+          <small>${lastMsg}</small>
         </div>
       `;
     }
-  });
+  }
 });
 
 // SELECT USER
@@ -163,7 +183,7 @@ function selectUser(user) {
   loadChat();
 }
 
-// SEND MESSAGE
+// SEND MESSAGE (UPDATED)
 function sendMsg() {
   let msgInput = document.getElementById("msg");
   let msg = msgInput.value.trim();
@@ -171,7 +191,10 @@ function sendMsg() {
   if (!selectedUser) return alert("Select user first!");
   if (!msg) return;
 
+  let chatId = getChatId(currentUser, selectedUser);
+
   db.collection("messages").add({
+    chatId: chatId,
     from: currentUser,
     to: selectedUser,
     text: msg,
@@ -186,12 +209,15 @@ document.getElementById("msg").addEventListener("keypress", e => {
   if (e.key === "Enter") sendMsg();
 });
 
-// CHAT
+// CHAT (FAST)
 function loadChat() {
 
   if (unsubscribeChat) unsubscribeChat();
 
+  let chatId = getChatId(currentUser, selectedUser);
+
   unsubscribeChat = db.collection("messages")
+    .where("chatId", "==", chatId)
     .orderBy("time")
     .onSnapshot(snapshot => {
 
@@ -201,19 +227,14 @@ function loadChat() {
       snapshot.forEach(doc => {
         let m = doc.data();
 
-        if (
-          (m.from === currentUser && m.to === selectedUser) ||
-          (m.from === selectedUser && m.to === currentUser)
-        ) {
-          let cls = m.from === currentUser ? "me" : "other";
+        let cls = m.from === currentUser ? "me" : "other";
 
-          chatDiv.innerHTML += `
-            <div class="msg ${cls}">
-              ${m.text}
-              <span class="time">${formatTime(m.time)}</span>
-            </div>
-          `;
-        }
+        chatDiv.innerHTML += `
+          <div class="msg ${cls}">
+            ${m.text}
+            <span class="time">${formatTime(m.time)}</span>
+          </div>
+        `;
       });
 
       chatDiv.scrollTop = chatDiv.scrollHeight;
